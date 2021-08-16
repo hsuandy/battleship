@@ -157,7 +157,7 @@ def draw_ui():
     rprint(player_fleet_map,'\n\n')
     rprint('[bold red]Opponent[/]')
     rprint(f'Damage Points Remaining: [orange1]{opponent_life}[/]', '\n')
-    #rprint(opponent_fleet_map, '\n') # Print map with opponent fleet coordinates
+    rprint(opponent_fleet_map, '\n') # Print map with opponent fleet coordinates
     rprint(opponent_display, '\n')
     rprint(output_message, '\n')
 
