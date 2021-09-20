@@ -1,8 +1,8 @@
 import os
 import pandas as pd
-from random import randint, choice
 from art import tprint
 from rich import print as rprint
+from random import randint, choice
 
 # ASCII art found at https://www.asciiart.eu/vehicles/navy, credit to Matthew Bace
 ship = '''[red]
@@ -21,31 +21,42 @@ ship = '''[red]
  \_________________________________________________________________________|
 [/]'''
 
-# Resize terminal
 def initialize_terminal(height = 80, width = 35):
-    cmd = f"printf '\e[8;{width};{height}t'"
-    os.system(cmd)
+    """Attempt to resize the terminal window."""
+    try:
+        if os.environ['SHELL']:
+            os.system(f"printf '\e[8;{width};{height}t'")
+    except KeyError:
+        os.system(f"mode con: cols={height} lines={width}")
 
-# Generate a grid map for the game by creating a dataframe
+def clear_term():
+    """Clear the terminal."""
+    try:
+        if os.environ['SHELL']:
+            os.system('clear')
+    except KeyError:
+        os.system('cls')
+
 def create_grid(row, col, sea_icon):
+    """Generate a grid map for the game by creating a dataframe."""
     init_col = [chr(ord('A') + num) for num in range(col)]
     init_row = [sea_icon for num in range(col)]
     grid = pd.DataFrame([init_row for num in range(row)], columns=init_col)
     return grid
 
-# Populate a grid map with ships
 def create_fleet_map(grid, fleet_data):
+    """Populate a grid map with ships."""
     map = grid.copy()
     occupied = {}
 
-    # Initialize starting coordinate for a ship
     def initialize(ship_size):
+        """Initialize starting coordinate for a ship."""
         row = randint(0, grid.shape[0] - ship_size)
         col = randint(0, grid.shape[1] - ship_size)
         return row, col
 
-    # Generate dictionary with grid coordinates as key and orientation icon as value for a ship based on size
     def map_ship(ship_size):
+        """Generate dictionary with grid coordinates as key and orientation icon as value for a ship based on size."""
         start = initialize(ship_size)
         orientation = randint(0, 1) # Select orientation (0 = horizontal, 1 = vertical)
         coords = {}
@@ -62,8 +73,8 @@ def create_fleet_map(grid, fleet_data):
             coords[row, col] = icon
         return coords
     
-    # Check that ship coordinates do not overlap with existing ship coordinates in occupied dictionary
     def validate_coords(coords, occupied):
+        """Check that ship coordinates do not overlap with existing ship coordinates in occupied dictionary."""
         for coord in coords:
             if coord in occupied:
                 return False
@@ -84,9 +95,10 @@ def create_fleet_map(grid, fleet_data):
     return map
 
 def update_fleet_map(fleet_map, fleet_display, target, sea_icon, hit_icon, miss_icon):
-    if fleet_map.iloc[target] in (miss_icon, hit_icon):
+    """Update display with the appropriate icon based on targeting result."""
+    if fleet_map.iloc[target] in (miss_icon, hit_icon): # Raise an error if the coordinate has been targeted before
         raise KeyError
-    if fleet_map.iloc[target] == sea_icon:
+    if fleet_map.iloc[target] == sea_icon: # It's a miss if the coordinate is occupied by a sea_icon
         fleet_map.iloc[target] = miss_icon
         fleet_display.iloc[target] = miss_icon
         return False
@@ -96,10 +108,12 @@ def update_fleet_map(fleet_map, fleet_display, target, sea_icon, hit_icon, miss_
         return True
 
 def initialize_hitpoints(fleet):
+    """Player and opponent hitpoints will be initialized to the aggregate value of their fleet."""
     return sum([size for size in fleet.values()])
 
 def check_game_state(player_life, opponent_life):
-    state = 0
+    """Determine if the game is still active or over."""
+    state = 0 # Game is still active
     if player_life == 0 and opponent_life == 0:
         state = 1 # Draw
     elif player_life == 0:
@@ -109,6 +123,7 @@ def check_game_state(player_life, opponent_life):
     return state
 
 def ai_target_selection(target_queue, player_fleet_map):
+    """Use targeting coordinate in the targeting_queue if available, otherwise randomly generate one."""
     if len(target_queue) > 0:
         player_target = choice(target_queue)
         target_queue.remove(player_target)
@@ -119,6 +134,7 @@ def ai_target_selection(target_queue, player_fleet_map):
     return player_target
 
 def ai_targeting_update(target, p_row_max, p_col_max, targeted_list):
+    """If targeted coordinate is a hit, add surrounding coordinates to the targeting queue if they're valid."""
     target_queue = []
     # Check above and below target
     if target[0] + 1 < p_row_max and (target[0] + 1, target[1]) not in targeted_list:
@@ -133,7 +149,8 @@ def ai_targeting_update(target, p_row_max, p_col_max, targeted_list):
     return target_queue
 
 def game_over_screen(game_state):
-    os.system('clear')
+    """Prints the game over screen with the appropriate status message."""
+    clear_term()
     if game_state == 1:
         tprint("DRAW")
         rprint("[bold yellow]Mutual destruction, both fleets have been sunk![/]", '\n')
@@ -151,13 +168,14 @@ def game_over_screen(game_state):
 
 # Draw UI
 def draw_ui():
+    """Draw the game UI."""
     print('\n')
     rprint(f'[bold green]{player_name}[/]')
     rprint(f'Damage Points Remaining: [orange1]{player_life}[/]', '\n')
     rprint(player_fleet_map,'\n\n')
     rprint('[bold red]Opponent[/]')
     rprint(f'Damage Points Remaining: [orange1]{opponent_life}[/]', '\n')
-    rprint(opponent_fleet_map, '\n') # Print map with opponent fleet coordinates
+    #rprint(opponent_fleet_map, '\n') # Print map with opponent fleet coordinates
     rprint(opponent_display, '\n')
     rprint(output_message, '\n')
 
@@ -167,14 +185,14 @@ retry = True
 while retry:
     # Attempt to resize terminal (may not work with all terminal types)
     initialize_terminal()
-    os.system('clear')
+    clear_term()
 
     # Initialize game data
     tprint("BATTLESHIP")
     rprint(ship, '\n')
     print("Welcome to the Naval Battle Simulator.", '\n')
     player_name = input('Enter your name: ') or 'Player'
-    player_fleet = {'Carrier': 5, 'Battleship': 4, 'Cruiser': 3, 'Submarine':3, 'Destroyer': 2}
+    player_fleet = {'Carrier': 5, 'Battleship': 4, 'Cruiser': 3, 'Submarine':3, 'Destroyer': 2} # Ship names not currently in use
     #player_fleet = {'Cruiser': 3} # Test fleet data
     player_life = initialize_hitpoints(player_fleet)
     opponent_fleet = {'Carrier': 5, 'Battleship': 4, 'Cruiser': 3, 'Submarine':3, 'Destroyer': 2}
@@ -238,7 +256,7 @@ while retry:
         # Check if there is a winner
         game_state = check_game_state(player_life, opponent_life)
         if game_state > 0:
-            retry = game_over_screen(game_state)
+            retry = game_over_screen(game_state) # If false, will end the retry loop and end the game
             break
 
         draw_ui()
